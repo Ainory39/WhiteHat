@@ -1,0 +1,243 @@
+/* 
+https://landu.tistory.com/entry/C%EC%96%B8%EC%96%B4-%EC%9C%A0%EC%A0%84%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98%EC%9C%BC%EB%A1%9C-%EB%AC%B8%EC%9E%90%EC%97%B4-%EB%A7%9E%EC%B6%94%EA%B8%B0
+*/
+#include <stdio.h>  // 기본 헤더
+#include <stdlib.h> // 랜덤 함수
+#include <time.h>   // 랜덤 함수
+#include <string.h> // strlen()
+#include <math.h>   // 적합도를 위함
+
+/* 문자열 입력 -> 랜덤 문자열 100개 생성 -> 적합도 측정 -> 상위 10개의 문자열로 다음 세대 생산(교차와 돌연변이)
+ -> 적합도 측정 -> ...반복... -> 문자열 일치 시 종료.
+*/
+
+/*
+필요 함수 : main, 1세대 생산, 적합도 측정, 10개 문자열 생존, 생산, 돌연변이     -- 총 6개
+*/
+
+#define STRCNT 10000    // 유전자의 개수
+#define STRLEN 50	  // 랜덤 문자열의 길이 
+#define SURVIVED 10   // 생존할 유전자 개수 
+
+void FirstGen(char genStr[STRCNT][STRLEN], int length);		// 첫번째 세대 생성 
+int Fitness(char *abc, char genStr[STRCNT][STRLEN], double *index, int length);	// 적합도 측정 함수 
+void SaveFew(char genStr[STRCNT][STRLEN], double *index, int survived[SURVIVED][STRCNT], int length);    //상위 SURVIVED개의 배열만 살림
+void Produce(char genStr[STRCNT][STRLEN], int survived[SURVIVED][STRCNT], int length);  //살아남은 배열로 다음세대 생성
+void Mutant(char genStr[STRCNT][STRLEN], int i, int j);                      //돌연변이 함수
+
+int main()
+{
+	char abc[STRLEN] = { 0 }; 
+	int length = 0;									// 입력한 문자열의 길이
+	char genStr[STRCNT][STRLEN] = { 0 };				// 한 세대 당 유전자 수, 해당 유전자의 길이 
+	int survived[SURVIVED][STRCNT]={ 0 };
+	
+	double index[STRCNT];
+	unsigned int genCnt = 0;
+	
+    printf("문자열 입력 : %s\n", abc);
+    fgets(abc, sizeof(abc), stdin);			//abc에 입력한 문자 저장
+	abc[strlen(abc)-1] = '\0';				//입력한 문자열의 마지막에 있는 개행 문자를 NULL로 교체
+	length = strlen(abc);		//문자열의 길이 추출 
+	
+	srand((unsigned)time(NULL));
+	//------------------------------------본격적으로 시작-----------------------------------	
+	FirstGen(genStr, length);
+	genCnt++;	//첫번째 세대가 만들어졌으므로 증가
+	
+	for(;;genCnt++)
+	{
+		//_sleep(100);
+		if(Fitness(abc, genStr, index, length) == 1) break;		//맞는 문장이 나올 경우 바로 종료 
+		// 적합도 계산하고 최적배열은 살려둠 
+		
+		printf("======================= %d 세대=======================\n\n", genCnt);
+		
+		SaveFew(genStr, index, survived, length);		// n개의 배열만 생존 시킴 
+		Produce(genStr, survived, length);				// 생존시킨 배열로 다음 세대를 생산
+ 
+	}
+	
+	
+    return 0;
+}
+
+void FirstGen(char genStr[STRCNT][STRLEN], int length)		// 첫번째 세대 생성 
+{
+	char rndAsc;		// 랜덤한 아스키 값 저장
+	register int i, j;
+	
+	/*printf("1 번째 세대\n") ;
+	printf("========================\n");*/
+	for(i=0; i<STRCNT; i++) 
+	{
+		//printf("%d : ", i);
+		for(j=0; j<length; j++)
+		{
+			while(1)
+			{
+				rndAsc = rand() % (123-65 +1) + 65;		//아스키 코드 범위 설정 (A~Z, a~z, spacebar( '{'가 나오면 이 값을 공백으로 교체))
+				if(rndAsc == 123) rndAsc = 32;	// 스페이스바 교체
+				if(rndAsc <=90 || rndAsc >= 97) break;		// 특수기호가 아니어야 반복 탈출 
+			}
+			genStr[i][j] = rndAsc;	//랜덤한 문장을 만든다.
+			//printf("%c", rndAsc);
+		}
+		//printf("\n");
+	}
+	//printf("\n========================\n");
+	
+}
+
+int Fitness(char *abc, char genStr[STRCNT][STRLEN], double *index, int length)
+{
+	float score;					// 점수
+	unsigned int bestScore=0;				// 최고 점수
+	unsigned int bestScoreIndex = 0;		// 최고 점수의 인덱스 값(위치)
+	
+	
+	int i, j;
+	for(i = 0; i<STRCNT; i++) 
+	{
+		score = 0;
+		for(j=0; j<length; j++)
+		{
+			if(abc[j]==genStr[i][j])	// 일치하는지 검사 
+			{
+				score++;
+			}
+		}
+		
+		if(score > bestScore)
+		{
+			bestScore = score;		// 최고 점수 갱신 
+			bestScoreIndex = i;		// 최고 점수 인덱스 값 갱신 
+		}
+		
+		if(score == length)
+		{
+			printf("찾음!\n");
+			for(j=0; j<length;j++)
+			{
+				printf("%c", genStr[bestScoreIndex][j]);
+			}
+			printf("\n");
+			return 1;		// 1반환
+		}
+		score = score / length;
+		score = pow(score, 4.0);
+		
+		index[i] = score;
+	}
+	
+	printf("가장 비슷한 문장 : ");
+	
+	for(i=0; i<length; i++)
+	{
+		int temp[STRCNT] = { 0 };
+		printf("%c", genStr[bestScoreIndex][i]);		// 최고 점수를 가진 문장 출력
+		// 다음 세대에 살려두기 위해 최고 점수 개체와 0번째 개체 위치 교체 
+		
+		temp[i] = genStr[0][i];
+		genStr[0][i] = genStr[bestScoreIndex][i];
+		genStr[bestScoreIndex][i] = temp[i];
+	}
+	printf("--------------------%d번째 index | %d / %d\n", bestScoreIndex, bestScore, length);		// 최고점수 출력
+	
+	return 0; 
+}
+
+void SaveFew(char genStr[STRCNT][STRLEN], double *index, int survived[SURVIVED][STRCNT], int length)
+{
+	float totalScore = 0;
+	float rndDNA = 0;			// 룰렛에서 다트
+	
+	register int i, j;
+	for(i=0; i<STRCNT; i++) 
+	{
+		totalScore += index[i];		// totalScore는 점수들의 총합을 의미 
+	}
+	
+	for(i=0; i<STRCNT; i++ ) 
+	{
+		index[i] = index[i] / totalScore;	// 점수를 걸릴 확률로 교체 
+		if(i!=0) index[i] = (index[i] + index[i-1]);		//누적확률로 교체 
+	}
+	
+	for(i = 0; i<length; i++)
+	{
+		survived[0][i] = genStr[0][i];			// 가장 우수한 개체 1개를 생존시킴 
+	}
+	
+	int cnt;
+	for(cnt = 1; cnt<10; cnt++) 
+	{
+		rndDNA = rand() * (1.0 / 32768.0);
+		
+		int q;
+		for(q=0; q<STRCNT-1; q++)
+		{
+			if((rndDNA >= index[q]) && (rndDNA < index[q+1]))
+			{
+				for(j=0; j<length; j++)
+				{
+					survived[cnt][j] = genStr[q][j];
+				}
+				break;
+			}
+		}
+	}
+	
+}
+
+void Produce(char genStr[STRCNT][STRLEN], int survived[SURVIVED][STRCNT], int length)
+{
+	int rndParent1;		// 랜덤값을 담을 아버지 변수
+	int rndParent2;		// 랜덤값을 담을 어머니 변수 
+	int rndStartPoint;  // 어디서 끊을지 정하는 랜덤 변수 
+	
+	register int i, j;
+	for(i=1; i<STRCNT; i++)		// 인덱스 0의 개체는 값이 가장 높으므로 pass 
+	{
+		rndParent1 = rand() % 10;
+		rndParent2 = rand() % 10;
+		rndStartPoint = rand() % (length / 2);
+		
+		for (j=0; j < rndStartPoint; j++)
+            {
+                genStr[i][j] = survived[rndParent2][j];        //모 값을 넣어줌
+                Mutant(genStr, i, j);  //일정확률로 돌연변이도 해줌(각각의 유전자에대해서)
+            }
+ 
+            for(j = rndStartPoint; j<(rndStartPoint+ (length /2)); j++)
+            {
+                genStr[i][j] = survived[rndParent1][j];        //부 값을 넣어줌
+                Mutant(genStr, i, j);
+            }
+ 
+            for (j = (rndStartPoint + (length / 2)) ; j < length ; j++)
+            {
+                genStr[i][j] = survived[rndParent2][j];        //모 값을 넣어줌
+                Mutant(genStr, i, j);
+            }
+ 
+    }
+ 
+}
+
+void Mutant(char genStr[STRCNT][STRLEN], int i, int j)
+{
+	int rndPercent = rand() % 1000;
+	char rndAsc; 		// 아스키 코드 담을 변수
+	
+	if (rndPercent < 1)
+	{
+		for(;;)
+		{
+			rndAsc = rand() % ((123-65)+1) + 65;
+			if(rndAsc == 123) rndAsc = 32;
+			if(rndAsc <=90 || rndAsc >= 97) break;		// 특수기호가 아니어야 반복 탈출 
+		}
+		genStr[i][j] = rndAsc;		// 무작위 값 삽입 
+	}
+}
