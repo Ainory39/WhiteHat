@@ -35,6 +35,7 @@ int main()
 	double index[STRCNT];
 	unsigned int genCnt = 0;
 	
+    printf("주의--알파벳과 공백만 가능합니다.\n");
     printf("문자열 입력 : %s\n", abc);
     fgets(abc, sizeof(abc), stdin);			//abc에 입력한 문자 저장
 	abc[strlen(abc)-1] = '\0';				//입력한 문자열의 마지막에 있는 개행 문자를 NULL로 교체
